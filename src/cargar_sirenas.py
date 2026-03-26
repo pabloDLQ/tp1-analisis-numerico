@@ -9,22 +9,22 @@ def cargar_audio(ruta_archivo):
     """
     if not os.path.exists(ruta_archivo):
         raise FileNotFoundError(f"El archivo {ruta_archivo} no existe.")
-    fs, data = wavfile.read(ruta_archivo)
-    # Si es estéreo, tomar solo un canal
-    if data.ndim > 1:
+    fs, data = wavfile.read(ruta_archivo) #fs es la frecuencia de muestreo, data es un array con los datos de audio
+
+    if data.ndim > 1:       # Si el audio tiene múltiples canales, solo toma el primero (mono)
         data = data[:, 0]
-    return fs, data
+    return fs, data         # Retorna la frecuencia y los datos
 
 def cargar_sirenas(carpeta='data'):
     """
     Carga los archivos sirena_1.wav y sirena_2.wav desde la carpeta especificada.
     Devuelve un diccionario con la información.
     """
-    rutas = {
+    rutas = {           #diccionario con las rutas de los archivos
         'sirena1': os.path.join(carpeta, 'sirena_1.wav'),
         'sirena2': os.path.join(carpeta, 'sirena_2.wav')
     }
-    resultados = {}
+    resultados = {}     #diccionario vacío para almacenar los resultados
     for nombre, ruta in rutas.items():
         try:
             fs, data = cargar_audio(ruta)
@@ -35,10 +35,3 @@ def cargar_sirenas(carpeta='data'):
             resultados[nombre] = None
     return resultados
 
-if __name__ == "__main__":
-    # Prueba rápida
-    sirenas = cargar_sirenas()
-    # Mostrar información
-    for nombre, info in sirenas.items():
-        if info:
-            print(f"{nombre}: {info['fs']} Hz, {len(info['data'])} muestras")
