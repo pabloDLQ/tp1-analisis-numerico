@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
+import os
 
-def graficar_tiempo_frecuencia(fs, data, titulo="Análisis Tiempo-Frecuencia", color='b', metricas=None):
+def graficar_tiempo_frecuencia(fs, data, titulo="Análisis Tiempo-Frecuencia", color='b', metricas=None, archivo_salida=None):
     """
     Grafica una señal en tiempo y frecuencia con métricas de calidad.
     
@@ -66,9 +67,18 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Análisis Tiempo-Frecuencia", c
     ax2.legend()
     
     plt.tight_layout()
+    
+    # Guardar el gráfico si se especifica un archivo de salida
+    if archivo_salida:
+        carpeta = os.path.dirname(archivo_salida)
+        if carpeta and not os.path.exists(carpeta):
+            os.makedirs(carpeta)
+        fig.savefig(archivo_salida, dpi=300, bbox_inches='tight')
+        print(f"Gráfico guardado: {archivo_salida}")
+        plt.close(fig)  # Cerrar la figura para liberar memoria
 
 
-def graficar_comparacion_seniales(fs1, data1, fs2, data2, titulo1="Sirena 1", titulo2="Sirena 2", metricas1=None, metricas2=None):
+def graficar_comparacion_seniales(fs1, data1, fs2, data2, titulo1="Sirena 1", titulo2="Sirena 2", metricas1=None, metricas2=None, archivo_salida=None):
     """
     Grafica dos señales lado a lado para comparación.
     
@@ -137,4 +147,15 @@ def graficar_comparacion_seniales(fs1, data1, fs2, data2, titulo1="Sirena 1", ti
             ax_freq.plot(freq_pico, pot_pico, 'r*', markersize=15, label=f"Pico: {freq_pico:.1f} Hz")
             ax_freq.legend()
     
-    fig.suptitle("Comparación de Señales", fontsize=14, fontweight='bold')
+    
+    fig.suptitle("Comparación Detallada de Señales de Sirenas", fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    
+    # Guardar el gráfico si se especifica un archivo de salida
+    if archivo_salida:
+        carpeta = os.path.dirname(archivo_salida)
+        if carpeta and not os.path.exists(carpeta):
+            os.makedirs(carpeta)
+        fig.savefig(archivo_salida, dpi=300, bbox_inches='tight')
+        print(f"Gráfico guardado: {archivo_salida}")
+        plt.close(fig)  # Cerrar la figura para liberar memoria

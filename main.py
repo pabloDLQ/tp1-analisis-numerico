@@ -1,9 +1,14 @@
 from src.cargar_sirenas import cargar_sirenas
 from src.graficador import graficar_comparacion_seniales
 from src.analisis_snr_v2 import imprimir_analisis_completo
-import matplotlib.pyplot as plt
+import os
 
 def main():
+    # Crear la carpeta de gráficos si no existe
+    carpeta_graficos = os.path.join(os.path.dirname(__file__), "graficos-creados")
+    if not os.path.exists(carpeta_graficos):
+        os.makedirs(carpeta_graficos)
+    
     # Cargar las sirenas
     sirenas = cargar_sirenas()
 
@@ -73,18 +78,23 @@ def main():
         print(f"       Filtrado es OPCIONAL; puede proceder directamente a análisis de frecuencia")
     
     print("\n" + "="*70 + "\n")
-
+    
     # ============================================================
     # GRÁFICOS - COMPARACIÓN DE PRUEBAS
     # ============================================================
+    
+    # Definir ruta de salida para el gráfico de comparación
+    archivo_comparacion = os.path.join(carpeta_graficos, "Comparacion_Sirena1_vs_Sirena2.png")
     
     graficar_comparacion_seniales(fs1, data1, fs2, data2,
                                   titulo1="Sirena 1",
                                   titulo2="Sirena 2",
                                   metricas1=resultado_1,
-                                  metricas2=resultado_2)
+                                  metricas2=resultado_2,
+                                  archivo_salida=archivo_comparacion)
     
-    plt.show()
+    print(f"\n✓ Los gráficos han sido guardados en la carpeta '{carpeta_graficos}'")
+    print(f"  - {archivo_comparacion}")
 
 
 if __name__ == "__main__":
