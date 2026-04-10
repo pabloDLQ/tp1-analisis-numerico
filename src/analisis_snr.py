@@ -4,7 +4,7 @@ from scipy import signal
 def calcular_snr_simple(data):
     """
     Calcula SNR de forma simple y robusta.
-    Asume que los segmentos más silenciosos contienen principalmente ruido.
+    Asume que los segmentos mas silenciosos contienen principalmente ruido.
     SNR = 10*log10(P_signal / P_noise)
     """
     # Asegurar que data es float
@@ -41,7 +41,7 @@ def calcular_snr_simple(data):
 
 
 def metricas_basicas(data, fs):
-    """Calcula métricas básicas de la señal"""
+    """Calcula metricas basicas de la senal"""
     # Evitar valores negativos
     valor_cuadrado_medio = np.mean(data ** 2)
     valor_cuadrado_medio = max(valor_cuadrado_medio, 1e-10)
@@ -51,7 +51,7 @@ def metricas_basicas(data, fs):
     minimo = np.min(data)
     maximo = np.max(data)
     
-    # Rango dinámico
+    # Rango dinamico
     if rms > 1e-10:
         rango_dinamico_db = 20 * np.log10(pico / rms)
     else:
@@ -112,9 +112,9 @@ def analizar_espectro(data, fs):
 
 
 def imprimir_analisis_completo(nombre, data, fs):
-    """Imprime análisis completo de una señal"""
+    """Imprime analisis completo de una senal"""
     print(f"\n{'='*60}")
-    print(f"Análisis SNR: {nombre}")
+    print(f"Analisis SNR: {nombre}")
     print(f"{'='*60}")
     
     # SNR
@@ -126,22 +126,22 @@ def imprimir_analisis_completo(nombre, data, fs):
         p_noise = p_signal * 0.01
     
     print(f"SNR: {snr_db:.2f} dB")
-    print(f"  Potencia de señal: {p_signal:.2e}")
+    print(f"  Potencia de senal: {p_signal:.2e}")
     print(f"  Potencia de ruido: {p_noise:.2e}")
     
-    # Métricas básicas
+    # Metricas basicas
     metricas = metricas_basicas(data, fs)
-    print(f"\nMétricas de Calidad:")
+    print(f"\nMetricas de Calidad:")
     print(f"  RMS: {metricas['rms']:.2e}")
     print(f"  Pico: {metricas['pico']:.2e}")
     print(f"  Factor de cresta: {metricas['factor_cresta']:.2f}")
-    print(f"  Rango dinámico: {metricas['rango_dinamico_db']:.2f} dB")
-    print(f"  Duración: {metricas['duracion_s']:.2f} s")
+    print(f"  Rango dinamico: {metricas['rango_dinamico_db']:.2f} dB")
+    print(f"  Duracion: {metricas['duracion_s']:.2f} s")
     
     # Espectro
     try:
         freqs, mag_db, freq_pico, pot_pico = analizar_espectro(data, fs)
-        print(f"\nAnálisis Espectral:")
+        print(f"\nAnalisis Espectral:")
         print(f"  Frecuencia de pico: {freq_pico:.1f} Hz")
         print(f"  Potencia en pico: {pot_pico:.1f} dB")
     except:
@@ -149,7 +149,7 @@ def imprimir_analisis_completo(nombre, data, fs):
         pot_pico = 0
         freqs = np.array([])
         mag_db = np.array([])
-        print(f"\nAnálisis Espectral: Error en cálculo")
+        print(f"\nAnalisis Espectral: Error en calculo")
     
     print(f"{'='*60}\n")
     

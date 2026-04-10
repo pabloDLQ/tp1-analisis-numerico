@@ -3,16 +3,16 @@ import numpy as np
 from scipy import signal
 import os
 
-def graficar_tiempo_frecuencia(fs, data, titulo="Análisis Tiempo-Frecuencia", color='b', metricas=None, archivo_salida=None):
+def graficar_tiempo_frecuencia(fs, data, titulo="Analisis Tiempo-Frecuencia", color='b', metricas=None, archivo_salida=None):
     """
-    Grafica una señal en tiempo y frecuencia con métricas de calidad.
+    Grafica una senal en tiempo y frecuencia con metricas de calidad.
     
-    Parámetros:
+    Parametros:
     - fs: frecuencia de muestreo (Hz)
     - data: array con las muestras
-    - titulo: título principal de la gráfica
-    - color: color de la línea
-    - metricas: diccionario con métricas de calidad (opcional)
+    - titulo: titulo principal de la grafica
+    - color: color de la linea
+    - metricas: diccionario con metricas de calidad (opcional)
     """
     # Crear figura con subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
@@ -25,12 +25,12 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Análisis Tiempo-Frecuencia", c
     ax1.set_ylabel("Amplitud")
     ax1.grid(True, linestyle='--', alpha=0.6)
     
-    # Agregar métricas al gráfico de tiempo
+    # Agregar metricas al grafico de tiempo
     if metricas:
         rms = metricas.get('rms', 0)
         pico = metricas.get('pico', 0)
         duracion = metricas.get('duracion_s', 0)
-        info_text = f"RMS: {rms:.2e} | Pico: {pico:.2e} | Duración: {duracion:.2f}s"
+        info_text = f"RMS: {rms:.2e} | Pico: {pico:.2e} | Duracion: {duracion:.2f}s"
         ax1.text(0.02, 0.95, info_text, transform=ax1.transAxes, 
                 fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
@@ -66,31 +66,31 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Análisis Tiempo-Frecuencia", c
     ax2.plot(freq_pico, pot_pico, 'r*', markersize=15, label=f"Pico: {freq_pico:.1f} Hz")
     ax2.legend()
     
-    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.3, wspace=0.3)
     
-    # Guardar el gráfico si se especifica un archivo de salida
+    # Guardar el grafico si se especifica un archivo de salida
     if archivo_salida:
         carpeta = os.path.dirname(archivo_salida)
         if carpeta and not os.path.exists(carpeta):
             os.makedirs(carpeta)
         fig.savefig(archivo_salida, dpi=300, bbox_inches='tight')
-        print(f"Gráfico guardado: {archivo_salida}")
+        print(f"Grafico guardado: {archivo_salida}")
         plt.close(fig)  # Cerrar la figura para liberar memoria
 
 
 def graficar_comparacion_seniales(fs1, data1, fs2, data2, titulo1="Sirena 1", titulo2="Sirena 2", metricas1=None, metricas2=None, archivo_salida=None):
     """
-    Grafica dos señales lado a lado para comparación.
+    Grafica dos senales lado a lado para comparacion.
     
-    Parámetros:
+    Parametros:
     - fs1, fs2: frecuencias de muestreo
-    - data1, data2: datos de las señales
-    - titulo1, titulo2: títulos de cada señal
-    - metricas1, metricas2: diccionarios con métricas de calidad
+    - data1, data2: datos de las senales
+    - titulo1, titulo2: titulos de cada senal
+    - metricas1, metricas2: diccionarios con metricas de calidad
     """
     fig = plt.figure(figsize=(14, 10))
     
-    # 4 subplots: tiempo y frecuencia para cada señal
+    # 4 subplots: tiempo y frecuencia para cada senal
     gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)
     
     colores = ['blue', 'red']
@@ -148,14 +148,14 @@ def graficar_comparacion_seniales(fs1, data1, fs2, data2, titulo1="Sirena 1", ti
             ax_freq.legend()
     
     
-    fig.suptitle("Comparación Detallada de Señales de Sirenas", fontsize=14, fontweight='bold')
-    plt.tight_layout()
+    fig.suptitle("Comparacion Detallada de Senales de Sirenas", fontsize=14, fontweight='bold')
+    plt.subplots_adjust(hspace=0.35, wspace=0.3, top=0.93)
     
-    # Guardar el gráfico si se especifica un archivo de salida
+    # Guardar el grafico si se especifica un archivo de salida
     if archivo_salida:
         carpeta = os.path.dirname(archivo_salida)
         if carpeta and not os.path.exists(carpeta):
             os.makedirs(carpeta)
         fig.savefig(archivo_salida, dpi=300, bbox_inches='tight')
-        print(f"Gráfico guardado: {archivo_salida}")
+        print(f"Grafico guardado: {archivo_salida}")
         plt.close(fig)  # Cerrar la figura para liberar memoria
