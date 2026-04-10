@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
+from matplotlib.ticker import MultipleLocator
 import os
 
 def graficar_tiempo_frecuencia(fs, data, titulo="Analisis Tiempo-Frecuencia", color='b', metricas=None, archivo_salida=None):
     """
-    Grafica una senal en tiempo y frecuencia con metricas de calidad.
+    Grafica una senal en tiempo y frecuencia (FFT completa y acotada [0-5000 Hz]).
     
     Parametros:
     - fs: frecuencia de muestreo (Hz)
@@ -14,8 +15,8 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Analisis Tiempo-Frecuencia", co
     - color: color de la linea
     - metricas: diccionario con metricas de calidad (opcional)
     """
-    # Crear figura con subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    # Crear figura con 3 subplots
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
     
     # --- SUBPLOT 1: Dominio del tiempo ---
     tiempo = np.arange(len(data)) / fs
@@ -24,6 +25,9 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Analisis Tiempo-Frecuencia", co
     ax1.set_xlabel("Tiempo (s)")
     ax1.set_ylabel("Amplitud")
     ax1.grid(True, linestyle='--', alpha=0.6)
+    
+    # Normalizar las marcas del eje Y cada 10000 unidades
+    ax1.yaxis.set_major_locator(MultipleLocator(10000))
     
     # Agregar metricas al grafico de tiempo
     if metricas:
@@ -34,8 +38,7 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Analisis Tiempo-Frecuencia", co
         ax1.text(0.02, 0.95, info_text, transform=ax1.transAxes, 
                 fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
-    # --- SUBPLOT 2: Dominio de la frecuencia ---
-    # Aplicar ventana de Hann
+    # Aplicar ventana de Hann una sola vez
     ventana = signal.windows.hann(len(data))
     datos_ventaneados = data * ventana
     
@@ -52,21 +55,61 @@ def graficar_tiempo_frecuencia(fs, data, titulo="Analisis Tiempo-Frecuencia", co
     # Convertir a dB
     magnitud_db = 20 * np.log10(magnitud_pos + 1e-10)
     
+    # --- SUBPLOT 2: Dominio de la frecuencia (FFT completa) ---
     ax2.plot(frecuencias_pos, magnitud_db, color=color, linewidth=0.8)
-    ax2.set_title(f"{titulo} - Dominio de la Frecuencia (FFT)")
+    ax2.set_title(f"{titulo} - FFT Completa (0-{fs/2:.0f} Hz)")
     ax2.set_xlabel("Frecuencia (Hz)")
     ax2.set_ylabel("Magnitud (dB)")
     ax2.grid(True, linestyle='--', alpha=0.6)
     ax2.set_xlim([0, fs/2])  # Mostrar hasta Nyquist
     
-    # Marcar pico principal
-    idx_pico = np.argmax(magnitud_pos)
+    # Marcar pico principal - excluyendo DC y frecuencias muy bajas
+    min_freq = 20  # Hz - excluye DC y ruido de baja frecuencia
+    idx_min_freq = np.argmax(frecuencias_pos >= min_freq)
+    
+    # Si hay frequencies > min_freq, buscar pico en ese rango
+    if frecuencias_pos[idx_min_freq] >= min_freq:
+        mag_filtrada = magnitud_pos[idx_min_freq:]
+        idx_pico_local = np.argmax(mag_filtrada)
+        idx_pico = idx_min_freq + idx_pico_local
+    else:
+        # Fallback: buscar desde indice 1 (excluir indice 0 que es DC)
+        idx_pico = 1 + np.argmax(magnitud_pos[1:])
+    
     freq_pico = frecuencias_pos[idx_pico]
     pot_pico = magnitud_db[idx_pico]
     ax2.plot(freq_pico, pot_pico, 'r*', markersize=15, label=f"Pico: {freq_pico:.1f} Hz")
     ax2.legend()
     
-    plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    # --- SUBPLOT 3: FFT Acotada [0-5000 Hz] ---
+    freq_max = 5000
+    idx_max = np.argmax(frecuencias_pos > freq_max)
+    if idx_max == 0:
+        idx_max = len(frecuencias_pos)
+    
+    frecuencias_acotadas = frecuencias_pos[:idx_max]
+    magnitud_acotada = magnitud_db[:idx_max]
+    
+    ax3.plot(frecuencias_acotadas, magnitud_acotada, color=color, linewidth=0.8)
+    ax3.set_title(f"{titulo} - FFT Acotada (0-5000 Hz)")
+    ax3.set_xlabel("Frecuencia (Hz)")
+    ax3.set_ylabel("Magnitud (dB)")
+    ax3.grid(True, linestyle='--', alpha=0.6)
+    ax3.set_xlim([0, freq_max])
+    
+    # Marcar pico en el rango acotado
+    idx_min_freq_acotado = np.argmax(frecuencias_acotadas >= min_freq)
+    if len(magnitud_acotada) > idx_min_freq_acotado:
+        mag_filtrada_acotada = magnitud_acotada[idx_min_freq_acotado:]
+        if len(mag_filtrada_acotada) > 0:
+            idx_pico_local = np.argmax(mag_filtrada_acotada)
+            idx_pico_acotado = idx_min_freq_acotado + idx_pico_local
+            freq_pico_acotado = frecuencias_acotadas[idx_pico_acotado]
+            pot_pico_acotado = magnitud_acotada[idx_pico_acotado]
+            ax3.plot(freq_pico_acotado, pot_pico_acotado, 'r*', markersize=15, label=f"Pico: {freq_pico_acotado:.1f} Hz")
+            ax3.legend()
+    
+    plt.subplots_adjust(hspace=0.35, wspace=0.3)
     
     # Guardar el grafico si se especifica un archivo de salida
     if archivo_salida:
