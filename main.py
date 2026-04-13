@@ -2,6 +2,7 @@ from src.cargar_sirenas import cargar_sirenas
 from src.graficador import graficar_comparacion_seniales, graficar_tiempo_frecuencia
 from src.filtro_paso_banda import aplicar_filtro_paso_banda
 from src.generar_FFT_temporales import generar_fft_ventanas
+from src.analizar_item2 import main as analizar_item2_main
 import os
 
 def menu_principal():
@@ -11,19 +12,20 @@ def menu_principal():
     print("="*70)
     print("\n1. Analizar Sirenas (Filtrado y gráficos básicos)")
     print("2. Generar FFT en Ventanas Temporales")
-    print("3. Salir")
+    print("3. Análisis Doppler (Calcular velocidad ambulancia)")
+    print("4. Salir")
     print("\n" + "-"*70)
     
     while True:
         try:
-            opcion = input("\nSelecciona una opción (1-3): ").strip()
-            if opcion in ['1', '2', '3']:
+            opcion = input("\nSelecciona una opción (1-4): ").strip()
+            if opcion in ['1', '2', '3', '4']:
                 return opcion
             else:
                 print("Opción inválida. Intenta de nuevo.")
         except KeyboardInterrupt:
             print("\n\nPrograma cancelado.")
-            return '3'
+            return '4'
 
 
 def analizar_fft_ventanas_menu(sirenas):
@@ -217,6 +219,9 @@ def main():
             analizar_fft_ventanas_menu(sirenas)
         
         elif opcion == '3':
+            analizar_item2_main()
+        
+        elif opcion == '4':
             print("\n[OK] Programa finalizado.")
             break
 

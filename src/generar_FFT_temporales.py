@@ -27,7 +27,7 @@ from src.cargar_sirenas import cargar_sirenas
 def generar_fft_ventana(fs, data, t_inicio, t_fin, num_ventana, 
                        titulo_base="FFT Sirena 1", color='b', archivo_salida=None):
     """
-    Genera un gráfico FFT para una ventana temporal específica.
+    Genera un gráfico FFT acotado (0-5000 Hz) para una ventana temporal específica.
     
     Parámetros:
     - fs: frecuencia de muestreo (Hz)
@@ -50,23 +50,12 @@ def generar_fft_ventana(fs, data, t_inicio, t_fin, num_ventana,
     # Extraer segmento
     segmento = data[idx_inicio:idx_fin]
     
-    # Crear figura con 3 subplots
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
-    
-    # --- SUBPLOT 1: Dominio del tiempo ---
-    tiempo_seg = np.arange(len(segmento)) / fs
-    ax1.plot(tiempo_seg, segmento, color=color, linewidth=0.8)
-    ax1.set_title(f"{titulo_base} - Ventana {num_ventana} [{t_inicio:.1f}s - {t_fin:.1f}s] - Dominio del Tiempo")
-    ax1.set_xlabel("Tiempo (s) [relativo a la ventana]")
-    ax1.set_ylabel("Amplitud")
-    ax1.grid(True, linestyle='--', alpha=0.6)
+    # Crear figura con 1 subplot
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
     
     # Información de la ventana
     pico = np.max(np.abs(segmento))
     rms = np.sqrt(np.mean(segmento**2))
-    info_text = f"Duración: 0.50s | RMS: {rms:.2e} | Pico: {pico:.2e}"
-    ax1.text(0.02, 0.95, info_text, transform=ax1.transAxes, 
-            fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     # Aplicar ventana de Hann
     ventana = signal.windows.hann(len(segmento))
@@ -85,30 +74,19 @@ def generar_fft_ventana(fs, data, t_inicio, t_fin, num_ventana,
     # Convertir a dB (escala logarítmica)
     magnitud_db = 20 * np.log10(magnitud_pos + 1e-10)
     
-    # --- SUBPLOT 2: FFT Completa ---
-    ax2.plot(frecuencias_pos, magnitud_db, color=color, linewidth=0.8)
-    ax2.set_title(f"FFT Completa (0 - {fs/2:.0f} Hz)")
-    ax2.set_xlabel("Frecuencia (Hz)")
-    ax2.set_ylabel("Magnitud (dB)")
-    ax2.grid(True, linestyle='--', alpha=0.6)
-    ax2.set_xlim(0, fs/2)
-    
-    # Encontrar y marcar picos
-    picos_idx, _ = signal.find_peaks(magnitud_db, height=-40, distance=20)
-    if len(picos_idx) > 0:
-        top_picos_idx = picos_idx[np.argsort(magnitud_db[picos_idx])[-5:]]
-        top_picos_idx = np.sort(top_picos_idx)
-        for idx in top_picos_idx:
-            ax2.plot(frecuencias_pos[idx], magnitud_db[idx], 'ro', markersize=6)
-    
-    # --- SUBPLOT 3: FFT Acotada (0-5000 Hz) ---
+    # --- Gráfico FFT (0-5000 Hz) ---
     idx_max_freq = np.where(frecuencias_pos <= 5000)[0]
-    ax3.plot(frecuencias_pos[idx_max_freq], magnitud_db[idx_max_freq], color=color, linewidth=0.8)
-    ax3.set_title(f"FFT Acotada (0 - 5000 Hz)")
-    ax3.set_xlabel("Frecuencia (Hz)")
-    ax3.set_ylabel("Magnitud (dB)")
-    ax3.grid(True, linestyle='--', alpha=0.6)
-    ax3.set_xlim(0, 5000)
+    ax.plot(frecuencias_pos[idx_max_freq], magnitud_db[idx_max_freq], color=color, linewidth=0.8)
+    ax.set_title(f"{titulo_base} - Ventana {num_ventana} [{t_inicio:.1f}s - {t_fin:.1f}s] - Gráfico FFT")
+    ax.set_xlabel("Frecuencia (Hz)")
+    ax.set_ylabel("Magnitud (dB)")
+    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.set_xlim(0, 5000)
+    
+    # Información de la ventana en el gráfico
+    info_text = f"Duración: 0.50s | RMS: {rms:.2e} | Pico: {pico:.2e}"
+    ax.text(0.02, 0.95, info_text, transform=ax.transAxes, 
+            fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     # Encontrar y marcar picos en rango acotado
     picos_acotados_idx, _ = signal.find_peaks(magnitud_db[idx_max_freq], height=-40, distance=20)
@@ -116,7 +94,7 @@ def generar_fft_ventana(fs, data, t_inicio, t_fin, num_ventana,
         top_picos_acotados = picos_acotados_idx[np.argsort(magnitud_db[idx_max_freq][picos_acotados_idx])[-3:]]
         top_picos_acotados = np.sort(top_picos_acotados)
         for idx in top_picos_acotados:
-            ax3.plot(frecuencias_pos[idx_max_freq][idx], magnitud_db[idx_max_freq][idx], 'ro', markersize=6)
+            ax.plot(frecuencias_pos[idx_max_freq][idx], magnitud_db[idx_max_freq][idx], 'ro', markersize=6)
     
     plt.tight_layout()
     
@@ -165,8 +143,8 @@ def generar_fft_ventanas_combinadas(fs, data, t_inicios, titulo_base="FFT Sirena
     duracion_total = len(data) / fs
     tamaño_ventana_s = t_inicios[1] - t_inicios[0]  # Asumir espaciado uniforme
     
-    # Crear figura con 9 subplots (3 ventanas × 3 gráficos cada una)
-    fig, axes = plt.subplots(3, 3, figsize=(15, 12))
+    # Crear figura con 3 subplots (3 ventanas × 1 gráfico cada una)
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10))
     
     info_ventanas = []
     
@@ -177,14 +155,6 @@ def generar_fft_ventanas_combinadas(fs, data, t_inicios, titulo_base="FFT Sirena
         idx_inicio = int(t_inicio * fs)
         idx_fin = int(t_fin * fs)
         segmento = data[idx_inicio:idx_fin]
-        
-        # --- Columna 0: Dominio del tiempo ---
-        tiempo_seg = np.arange(len(segmento)) / fs
-        axes[fila, 0].plot(tiempo_seg, segmento, color=color, linewidth=0.8)
-        axes[fila, 0].set_title(f"Tiempo [{t_inicio:.1f}s - {t_fin:.1f}s]")
-        axes[fila, 0].set_xlabel("Tiempo (s)")
-        axes[fila, 0].set_ylabel("Amplitud")
-        axes[fila, 0].grid(True, linestyle='--', alpha=0.6)
         
         # Información de la ventana
         pico = np.max(np.abs(segmento))
@@ -203,31 +173,20 @@ def generar_fft_ventanas_combinadas(fs, data, t_inicios, titulo_base="FFT Sirena
         magnitud_pos = magnitud[idx_positivas]
         magnitud_db = 20 * np.log10(magnitud_pos + 1e-10)
         
-        # --- Columna 1: FFT Completa ---
-        axes[fila, 1].plot(frecuencias_pos, magnitud_db, color=color, linewidth=0.8)
-        axes[fila, 1].set_title(f"FFT Completa [{t_inicio:.1f}s - {t_fin:.1f}s]")
-        axes[fila, 1].set_xlabel("Frecuencia (Hz)")
-        axes[fila, 1].set_ylabel("Magnitud (dB)")
-        axes[fila, 1].grid(True, linestyle='--', alpha=0.6)
-        axes[fila, 1].set_xlim(0, fs/2)
-        
-        # Marcar picos
-        picos_idx, _ = signal.find_peaks(magnitud_db, height=-40, distance=20)
-        if len(picos_idx) > 0:
-            top_picos_idx = picos_idx[np.argsort(magnitud_db[picos_idx])[-5:]]
-            top_picos_idx = np.sort(top_picos_idx)
-            for idx in top_picos_idx:
-                axes[fila, 1].plot(frecuencias_pos[idx], magnitud_db[idx], 'ro', markersize=6)
-        
-        # --- Columna 2: FFT Acotada (0-5000 Hz) ---
+        # --- Gráfico FFT (0-5000 Hz) ---
         idx_max_freq = np.where(frecuencias_pos <= 5000)[0]
-        axes[fila, 2].plot(frecuencias_pos[idx_max_freq], magnitud_db[idx_max_freq], 
+        axes[fila].plot(frecuencias_pos[idx_max_freq], magnitud_db[idx_max_freq], 
                           color=color, linewidth=0.8)
-        axes[fila, 2].set_title(f"FFT Acotada [0-5000 Hz] [{t_inicio:.1f}s - {t_fin:.1f}s]")
-        axes[fila, 2].set_xlabel("Frecuencia (Hz)")
-        axes[fila, 2].set_ylabel("Magnitud (dB)")
-        axes[fila, 2].grid(True, linestyle='--', alpha=0.6)
-        axes[fila, 2].set_xlim(0, 5000)
+        axes[fila].set_title(f"Gráfico FFT [{t_inicio:.1f}s - {t_fin:.1f}s]")
+        axes[fila].set_xlabel("Frecuencia (Hz)")
+        axes[fila].set_ylabel("Magnitud (dB)")
+        axes[fila].grid(True, linestyle='--', alpha=0.6)
+        axes[fila].set_xlim(0, 5000)
+        
+        # Información de la ventana en el gráfico
+        info_text = f"RMS: {rms:.2e} | Pico: {pico:.2e}"
+        axes[fila].text(0.02, 0.95, info_text, transform=axes[fila].transAxes, 
+                fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
         
         # Marcar picos en rango acotado
         picos_acotados_idx, _ = signal.find_peaks(magnitud_db[idx_max_freq], height=-40, distance=20)
@@ -235,7 +194,7 @@ def generar_fft_ventanas_combinadas(fs, data, t_inicios, titulo_base="FFT Sirena
             top_picos_acotados = picos_acotados_idx[np.argsort(magnitud_db[idx_max_freq][picos_acotados_idx])[-3:]]
             top_picos_acotados = np.sort(top_picos_acotados)
             for idx in top_picos_acotados:
-                axes[fila, 2].plot(frecuencias_pos[idx_max_freq][idx], magnitud_db[idx_max_freq][idx], 
+                axes[fila].plot(frecuencias_pos[idx_max_freq][idx], magnitud_db[idx_max_freq][idx], 
                                   'ro', markersize=6)
         
         # Frecuencia dominante
@@ -263,18 +222,6 @@ def generar_fft_ventanas_combinadas(fs, data, t_inicios, titulo_base="FFT Sirena
     plt.close()
     
     return info_ventanas
-    
-    # Información de la ventana
-    info_ventana = {
-        'num_ventana': num_ventana,
-        'intervalo': f'{t_inicio:.1f}s - {t_fin:.1f}s',
-        'frecuencia_dominante_Hz': float(freq_dominante),
-        'magnitud_maxima_dB': float(magnitud_db[idx_max]),
-        'rms': float(rms),
-        'pico': float(pico)
-    }
-    
-    return info_ventana
 
 
 def generar_fft_ventanas(fs, data, tamaño_ventana_s=0.5, nombre_sirena="Sirena1", 

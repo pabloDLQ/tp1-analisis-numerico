@@ -164,3 +164,39 @@ def calcular_velocidad_ambulancia(freq_min, freq_max, freq_promedio=None):
         'v_promedio_kmh': v_promedio * 3.6,
         'v_sonido': v_sonido
     }
+
+
+def calcular_velocidades_por_ventana(frecuencias_pico, freq_promedio=None):
+    """
+    Calcula velocidades de acercamiento y alejamiento para cada ventana.
+    
+    Parámetros:
+    - frecuencias_pico: lista de frecuencias pico detectadas en cada ventana
+    - freq_promedio: frecuencia de reposo estimada (si no se proporciona, usa promedio)
+    
+    Retorna:
+    - tupla: (velocidades_acerca, velocidades_aleja) en m/s
+    """
+    
+    v_sonido = 343  # m/s a 20°C
+    
+    if freq_promedio is None:
+        freq_promedio = np.mean(frecuencias_pico)
+    
+    velocidades_acerca = []
+    velocidades_aleja = []
+    
+    # Comparar cada frecuencia con el promedio
+    for freq_pico in frecuencias_pico:
+        if freq_pico > freq_promedio:
+            # Acercamiento: frecuencia aumenta (mayor que promedio)
+            v_acerca = v_sonido * (1 - freq_promedio / freq_pico)
+            velocidades_acerca.append(v_acerca)
+            velocidades_aleja.append(None)
+        else:
+            # Alejamiento: frecuencia disminuye (menor que promedio)
+            v_aleja = v_sonido * (freq_promedio / freq_pico - 1)
+            velocidades_acerca.append(None)
+            velocidades_aleja.append(v_aleja)
+    
+    return velocidades_acerca, velocidades_aleja
