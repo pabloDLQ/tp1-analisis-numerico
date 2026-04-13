@@ -208,7 +208,7 @@ VELOCIDAD ESTIMADA: ~71.5 km/h
 
 
 def main():
-    carpeta_graficos = os.path.join(os.path.dirname(__file__), "graficos-creados")
+    carpeta_graficos = os.path.join(os.path.dirname(__file__), "..", "graficos-creados")
     if not os.path.exists(carpeta_graficos):
         os.makedirs(carpeta_graficos)
     

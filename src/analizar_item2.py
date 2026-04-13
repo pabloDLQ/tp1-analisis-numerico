@@ -1,6 +1,6 @@
 """
 Script para generar gráficos FFT en ventanas temporales y analizar efecto Doppler.
-Ejecutar: python analizar_item2.py
+Ejecutar: python -m src.analizar_item2
 """
 
 from src.cargar_sirenas import cargar_sirenas
@@ -10,7 +10,7 @@ import os
 
 def main():
     # Crear carpeta de gráficos
-    carpeta_graficos = os.path.join(os.path.dirname(__file__), "graficos-creados")
+    carpeta_graficos = os.path.join(os.path.dirname(__file__), "..", "graficos-creados")
     if not os.path.exists(carpeta_graficos):
         os.makedirs(carpeta_graficos)
     
