@@ -252,14 +252,15 @@ def generar_fft_ventanas(fs, data, tamaño_ventana_s=0.5, nombre_sirena="Sirena1
     
     resultados = []
     
-    # Crear carpeta con el nombre del tamaño de ventana
+    # Crear carpeta con el nombre de la sirena y el tamaño de ventana
     if carpeta_salida:
-        # Formatear el nombre de la carpeta (ej: "0.5")
+        # Formatear el nombre de la carpeta (ej: "Sirena1_0.5", "Sirena2_1.0")
         nombre_carpeta_tamaño = f"{tamaño_ventana_s:.1f}".rstrip('0').rstrip('.')
         if '.' in f"{tamaño_ventana_s:.1f}":
             nombre_carpeta_tamaño = f"{tamaño_ventana_s:.1f}"
         
-        carpeta_tamaño = os.path.join(carpeta_salida, nombre_carpeta_tamaño)
+        nombre_carpeta_final = f"{nombre_sirena}_{nombre_carpeta_tamaño}"
+        carpeta_tamaño = os.path.join(carpeta_salida, nombre_carpeta_final)
         print(f"Guardando gráficos en: {carpeta_tamaño}/\n")
     else:
         carpeta_tamaño = None

@@ -132,6 +132,9 @@ def calcular_velocidad_ambulancia(freq_min, freq_max, freq_promedio=None):
     """
     Calcula la velocidad de la ambulancia usando efecto Doppler.
     
+    Calcula la velocidad en el período de frecuencia máxima y en el período
+    de frecuencia mínima, luego promedia ambos resultados.
+    
     Parámetros:
     - freq_min: frecuencia mínima detectada (Hz)
     - freq_max: frecuencia máxima detectada (Hz)
@@ -147,12 +150,20 @@ def calcular_velocidad_ambulancia(freq_min, freq_max, freq_promedio=None):
         freq_promedio = (freq_min + freq_max) / 2
     
     # Fórmula Doppler (observador estacionario):
-    # f_max = f0 * v_sonido / (v_sonido - v_ambulancia)  [acercamiento]
-    # f_min = f0 * v_sonido / (v_sonido + v_ambulancia)  [alejamiento]
+    # Asumimos que en el período de freq_max, la ambulancia se acerca
+    # y en el período de freq_min, se aleja
     
-    # Despejando velocidad:
+    # Para acercamiento (usando freq_max):
+    # f_max = f0 * v_sonido / (v_sonido - v_ambulancia)
+    # Despejando: v_ambulancia = v_sonido * (1 - f0 / f_max)
     v_acerca = v_sonido * (1 - freq_promedio / freq_max)
+    
+    # Para alejamiento (usando freq_min):
+    # f_min = f0 * v_sonido / (v_sonido + v_ambulancia)
+    # Despejando: v_ambulancia = v_sonido * (f0 / f_min - 1)
     v_aleja = v_sonido * (freq_promedio / freq_min - 1)
+    
+    # Promedio entre acercamiento y alejamiento
     v_promedio = (v_acerca + v_aleja) / 2
     
     return {
