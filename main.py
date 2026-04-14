@@ -6,6 +6,7 @@ from src.analizar_item2 import main as analizar_item2_main
 import os
 
 def menu_principal():
+    #comment
     """Muestra el menú principal y retorna la opción seleccionada."""
     print("\n" + "="*70)
     print("ANALISIS DE SENIALES DE SIRENAS - MENU PRINCIPAL")
