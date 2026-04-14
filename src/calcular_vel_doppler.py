@@ -8,7 +8,26 @@ from src.analisis_doppler import analizar_fft_ventanas_temporales, calcular_velo
 import numpy as np
 import os
 
-def main():
+def main(numero_sirena=1, tamaño_ventana=0.5):
+    """
+    Calcula la velocidad Doppler de una sirena.
+    
+    Parámetros:
+    -----------
+    numero_sirena : int, default 1
+        Número de sirena a analizar (1 o 2)
+    tamaño_ventana : float, default 0.5
+        Tamaño de la ventana temporal en segundos
+    """
+    # Validar entrada
+    if numero_sirena not in [1, 2]:
+        print("Error: numero_sirena debe ser 1 o 2")
+        return
+    
+    if tamaño_ventana <= 0:
+        print("Error: tamaño_ventana debe ser positivo")
+        return
+    
     # Crear carpeta de gráficos
     carpeta_graficos = os.path.join(os.path.dirname(__file__), "..", "graficos-creados")
     if not os.path.exists(carpeta_graficos):
@@ -17,26 +36,33 @@ def main():
     # Cargar sirenas
     sirenas = cargar_sirenas()
     
-    if sirenas['sirena1'] is None:
-        print("Error: No se pudo cargar Sirena 1")
-        return
-    
-    fs1 = sirenas['sirena1']['fs']
-    data1 = sirenas['sirena1']['data']
+    # Seleccionar sirena según parámetro
+    if numero_sirena == 1:
+        if sirenas['sirena1'] is None:
+            print("Error: No se pudo cargar Sirena 1")
+            return
+        fs = sirenas['sirena1']['fs']
+        data = sirenas['sirena1']['data']
+        nombre_sirena = "Sirena 1"
+    else:  # numero_sirena == 2
+        if sirenas['sirena2'] is None:
+            print("Error: No se pudo cargar Sirena 2")
+            return
+        fs = sirenas['sirena2']['fs']
+        data = sirenas['sirena2']['data']
+        nombre_sirena = "Sirena 2"
     
     print("="*70)
     print("ITEM 2: ANÁLISIS DE FFT EN VENTANAS TEMPORALES (EFECTO DOPPLER)")
     print("="*70)
-    print(f"\nSirena 1: fs = {fs1} Hz, duración = {len(data1)/fs1:.2f} s\n")
+    print(f"\n{nombre_sirena}: fs = {fs} Hz, duración = {len(data)/fs:.2f} s\n")
     
-    # Generar gráfico FFT en ventanas de 0.5 segundos
-    tamaño_ventana = 0.5
-    archivo_ventanas = os.path.join(carpeta_graficos, "Sirena1_FFT_Ventanas_0.5s.png")
+    archivo_ventanas = os.path.join(carpeta_graficos, f"{nombre_sirena.replace(' ', '')}_FFT_Ventanas_{tamaño_ventana}s.png")
     
     print(f"Generando gráfico FFT en ventanas de {tamaño_ventana} segundos...")
     info_ventanas = analizar_fft_ventanas_temporales(
-        fs1, data1,
-        titulo="Sirena 1 - FFT en Ventanas Temporales",
+        fs, data,
+        titulo=f"{nombre_sirena} - FFT en Ventanas Temporales",
         tamaño_ventana_s=tamaño_ventana,
         color='blue',
         archivo_salida=archivo_ventanas
@@ -167,6 +193,25 @@ Parámetros:
     print(f"Gráfico generado: {archivo_ventanas}")
     print("="*70)
 
-
 if __name__ == "__main__":
-    main()
+    import sys
+    
+    numero_sirena = 1
+    tamaño_ventana = 0.5
+    
+    # Procesar argumentos de línea de comandos
+    if len(sys.argv) > 1:
+        try:
+            numero_sirena = int(sys.argv[1])
+        except ValueError:
+            print(f"Error: primer argumento debe ser un número (1 o 2), recibió: {sys.argv[1]}")
+            sys.exit(1)
+    
+    if len(sys.argv) > 2:
+        try:
+            tamaño_ventana = float(sys.argv[2])
+        except ValueError:
+            print(f"Error: segundo argumento debe ser un número, recibió: {sys.argv[2]}")
+            sys.exit(1)
+    
+    main(numero_sirena=numero_sirena, tamaño_ventana=tamaño_ventana)

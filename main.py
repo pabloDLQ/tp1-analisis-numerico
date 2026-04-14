@@ -2,7 +2,7 @@ from src.cargar_sirenas import cargar_sirenas
 from src.graficador import graficar_comparacion_seniales, graficar_tiempo_frecuencia
 from src.filtro_paso_banda import aplicar_filtro_paso_banda
 from src.generar_FFT_temporales import generar_fft_ventanas
-from src.analizar_item2 import main as analizar_item2_main
+from src.calcular_vel_doppler import main as calcular_vel_doppler_main
 import os
 
 def menu_principal():
@@ -118,6 +118,79 @@ def analizar_fft_ventanas_menu(sirenas):
     print(f"Los gráficos se encuentran en: {os.path.abspath(carpeta_graficos)}/")
 
 
+def analizar_doppler_menu(sirenas):
+    """Menú interactivo para análisis Doppler (cálculo de velocidad)."""
+    print("\n" + "="*70)
+    print("ANÁLISIS DOPPLER - CALCULAR VELOCIDAD DE AMBULANCIA")
+    print("="*70)
+    
+    # Seleccionar sirena
+    print("\nSelecciona la sirena a analizar:")
+    print("  1. Sirena 1")
+    print("  2. Sirena 2")
+    
+    while True:
+        try:
+            opcion_sirena = input("\nOpción (1 o 2): ").strip()
+            if opcion_sirena == '1':
+                if sirenas['sirena1'] is None:
+                    print("Error: Sirena 1 no disponible.")
+                    return
+                numero_sirena = 1
+                break
+            elif opcion_sirena == '2':
+                if sirenas['sirena2'] is None:
+                    print("Error: Sirena 2 no disponible.")
+                    return
+                numero_sirena = 2
+                break
+            else:
+                print("Opción inválida. Intenta de nuevo.")
+        except KeyboardInterrupt:
+            print("\n\nOperación cancelada.")
+            return
+    
+    # Seleccionar tamaño de ventana
+    print("\nSelecciona el tamaño de ventana temporal (en segundos):")
+    print("  1. 0.25 segundos")
+    print("  2. 0.5 segundos (recomendado)")
+    print("  3. 1.0 segundos")
+    print("  4. Personalizado")
+    
+    while True:
+        try:
+            opcion_ventana = input("\nOpción (1-4): ").strip()
+            if opcion_ventana == '1':
+                tamaño_ventana = 0.25
+                break
+            elif opcion_ventana == '2':
+                tamaño_ventana = 0.5
+                break
+            elif opcion_ventana == '3':
+                tamaño_ventana = 1.0
+                break
+            elif opcion_ventana == '4':
+                try:
+                    tamaño_str = input("Ingresa el tamaño en segundos: ").strip()
+                    tamaño_ventana = float(tamaño_str)
+                    if tamaño_ventana <= 0:
+                        print("Error: El tamaño debe ser positivo.")
+                        continue
+                    break
+                except ValueError:
+                    print("Entrada inválida. Intenta de nuevo.")
+                    continue
+            else:
+                print("Opción inválida. Intenta de nuevo.")
+        except KeyboardInterrupt:
+            print("\n\nOperación cancelada.")
+            return
+    
+    # Ejecutar análisis Doppler con los parámetros seleccionados
+    print(f"\n[INFO] Calculando velocidad Doppler para Sirena {numero_sirena} con ventanas de {tamaño_ventana}s...")
+    calcular_vel_doppler_main(numero_sirena=numero_sirena, tamaño_ventana=tamaño_ventana)
+
+
 def main():
     # Crear la carpeta de graficos si no existe
     carpeta_graficos = os.path.join(os.path.dirname(__file__), "graficos-creados")
@@ -220,7 +293,7 @@ def main():
             analizar_fft_ventanas_menu(sirenas)
         
         elif opcion == '3':
-            analizar_item2_main()
+            analizar_doppler_menu(sirenas)
         
         elif opcion == '4':
             print("\n[OK] Programa finalizado.")
