@@ -3,6 +3,7 @@ from src.graficador import graficar_comparacion_seniales, graficar_tiempo_frecue
 from src.filtro_paso_banda import aplicar_filtro_paso_banda
 from src.generar_FFT_temporales import generar_fft_ventanas
 from src.calcular_vel_doppler import main as calcular_vel_doppler_main
+from src.analizar_espectrograma import main as analizar_espectrograma_main
 import os
 
 def menu_principal():
@@ -14,19 +15,20 @@ def menu_principal():
     print("\n1. Analizar Sirenas (Filtrado y gráficos básicos)")
     print("2. Generar FFT en Ventanas Temporales")
     print("3. Análisis Doppler (Calcular velocidad ambulancia)")
-    print("4. Salir")
+    print("4. Generar Espectrogramas")
+    print("5. Salir")
     print("\n" + "-"*70)
     
     while True:
         try:
-            opcion = input("\nSelecciona una opción (1-4): ").strip()
-            if opcion in ['1', '2', '3', '4']:
+            opcion = input("\nSelecciona una opción (1-5): ").strip()
+            if opcion in ['1', '2', '3', '4', '5']:
                 return opcion
             else:
                 print("Opción inválida. Intenta de nuevo.")
         except KeyboardInterrupt:
             print("\n\nPrograma cancelado.")
-            return '4'
+            return '5'
 
 
 def analizar_fft_ventanas_menu(sirenas):
@@ -190,8 +192,85 @@ def analizar_doppler_menu(sirenas):
             return
     
     # Ejecutar análisis Doppler con los parámetros seleccionados
-    print(f"\n[INFO] Calculando velocidad Doppler para Sirena {numero_sirena} con ventanas de {tamaño_ventana}s...")
+    print(f"\n[INFO] Calculando velocidad Doppler para Sirena {numero_sirena}")
     calcular_vel_doppler_main(numero_sirena=numero_sirena, tamaño_ventana=tamaño_ventana)
+
+
+def analizar_espectrograma_menu(sirenas):
+    """Menú interactivo para generación de espectrogramas."""
+    print("\n" + "="*70)
+    print("GENERAR ESPECTROGRAMAS")
+    print("="*70)
+    
+    # Seleccionar sirena
+    print("\nSelecciona la sirena a analizar:")
+    print("  1. Sirena 1")
+    print("  2. Sirena 2")
+    
+    while True:
+        try:
+            opcion_sirena = input("\nOpción (1 o 2): ").strip()
+            if opcion_sirena == '1':
+                if sirenas['sirena1'] is None:
+                    print("Error: Sirena 1 no disponible.")
+                    return
+                numero_sirena = 1
+                break
+            elif opcion_sirena == '2':
+                if sirenas['sirena2'] is None:
+                    print("Error: Sirena 2 no disponible.")
+                    return
+                numero_sirena = 2
+                break
+            else:
+                print("Opción inválida. Intenta de nuevo.")
+        except KeyboardInterrupt:
+            print("\n\nOperación cancelada.")
+            return
+    
+    # Seleccionar tamaño de ventana STFT
+    print("\nSelecciona el tamaño de ventana STFT (en segundos):")
+    print("  1. 0.1 segundos")
+    print("  2. 0.25 segundos")
+    print("  3. 0.5 segundos (recomendado)")
+    print("  4. 1.0 segundos")
+    print("  5. Personalizado")
+    
+    while True:
+        try:
+            opcion_ventana = input("\nOpción (1-5): ").strip()
+            if opcion_ventana == '1':
+                tamaño_ventana = 0.1
+                break
+            elif opcion_ventana == '2':
+                tamaño_ventana = 0.25
+                break
+            elif opcion_ventana == '3':
+                tamaño_ventana = 0.5
+                break
+            elif opcion_ventana == '4':
+                tamaño_ventana = 1.0
+                break
+            elif opcion_ventana == '5':
+                try:
+                    tamaño_str = input("Ingresa el tamaño en segundos: ").strip()
+                    tamaño_ventana = float(tamaño_str)
+                    if tamaño_ventana <= 0:
+                        print("Error: El tamaño debe ser positivo.")
+                        continue
+                    break
+                except ValueError:
+                    print("Entrada inválida. Intenta de nuevo.")
+                    continue
+            else:
+                print("Opción inválida. Intenta de nuevo.")
+        except KeyboardInterrupt:
+            print("\n\nOperación cancelada.")
+            return
+    
+    # Ejecutar análisis de espectrograma con los parámetros seleccionados
+    print(f"\n[INFO] Generando espectrograma para Sirena {numero_sirena} con ventana de {tamaño_ventana}s...")
+    analizar_espectrograma_main(numero_sirena=numero_sirena, tamaño_ventana_s=tamaño_ventana)
 
 
 def main():
@@ -299,6 +378,9 @@ def main():
             analizar_doppler_menu(sirenas)
         
         elif opcion == '4':
+            analizar_espectrograma_menu(sirenas)
+        
+        elif opcion == '5':
             print("\n[OK] Programa finalizado.")
             break
 
