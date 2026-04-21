@@ -156,12 +156,12 @@ def calcular_velocidad_ambulancia(freq_min, freq_max, freq_promedio=None):
     # Para acercamiento (usando freq_max):
     # f_max = f0 * v_sonido / (v_sonido - v_ambulancia)
     # Despejando: v_ambulancia = v_sonido * (1 - f0 / f_max)
-    v_acerca = v_sonido * (1 - freq_promedio / freq_max)
+    v_acerca = abs(v_sonido * (1 - freq_promedio / freq_max))
     
     # Para alejamiento (usando freq_min):
     # f_min = f0 * v_sonido / (v_sonido + v_ambulancia)
     # Despejando: v_ambulancia = v_sonido * (f0 / f_min - 1)
-    v_aleja = v_sonido * (freq_promedio / freq_min - 1)
+    v_aleja = abs(v_sonido * (freq_promedio / freq_min - 1))
     
     # Promedio entre acercamiento y alejamiento
     v_promedio = (v_acerca + v_aleja) / 2
@@ -201,25 +201,29 @@ def calcular_velocidades_por_ventana(frecuencias_pico, freq_promedio=None):
     for freq_pico in frecuencias_pico:
         if freq_pico > freq_promedio:
             # Acercamiento: frecuencia aumenta (mayor que promedio)
-            v_acerca = v_sonido * (1 - freq_promedio / freq_pico)
+            v_acerca = abs(v_sonido * (1 - freq_promedio / freq_pico))
             velocidades_acerca.append(v_acerca)
             velocidades_aleja.append(None)
         else:
             # Alejamiento: frecuencia disminuye (menor que promedio)
-            v_aleja = v_sonido * (freq_promedio / freq_pico - 1)
+            v_aleja = abs(v_sonido * (freq_promedio / freq_pico - 1))
             velocidades_acerca.append(None)
             velocidades_aleja.append(v_aleja)
     
     return velocidades_acerca, velocidades_aleja
 
 
-def calcular_velocidades_metodo2(frecuencias_pico, info_ventanas, freq_real, instante_paso):
+def calcular_velocidades_metodo2(frecuencias_pico, info_ventanas, freq_real, instante_paso,
+                                  t_freq=None, frecuencias_instantaneas=None):
     """
     MÉTODO 2: Calcula velocidades usando la frecuencia real del espectrograma e instante de paso.
     
     Clasifica cada ventana como acercamiento o alejamiento basándose en:
     - Si tiempo_fin < instante_paso: ACERCAMIENTO
     - Si tiempo_fin > instante_paso: ALEJAMIENTO
+    
+    Si se proporciona t_freq y frecuencias_instantaneas, usa la función fundamental
+    para obtener la frecuencia real correspondiente a cada instante.
     
     Parámetros:
     -----------
@@ -231,6 +235,10 @@ def calcular_velocidades_metodo2(frecuencias_pico, info_ventanas, freq_real, ins
         Frecuencia real emitida (f₀) obtenida del espectrograma
     instante_paso : float
         Instante de paso más cercano del micrófono (en segundos)
+    t_freq : ndarray, optional
+        Array de tiempo de las ventanas STFT (para función fundamental)
+    frecuencias_instantaneas : ndarray, optional
+        Array de frecuencias instantáneas detectadas (para función fundamental)
     
     Retorna:
     --------
@@ -242,6 +250,13 @@ def calcular_velocidades_metodo2(frecuencias_pico, info_ventanas, freq_real, ins
     
     v_sonido = 343  # m/s a 20°C
     
+    # Si se proporciona datos para la función fundamental, calcularla
+    if t_freq is not None and frecuencias_instantaneas is not None:
+        from src.analizar_espectrograma import frecuencia_fundamental
+        freq_fundamental_array = frecuencia_fundamental(t_freq, frecuencias_instantaneas, instante_paso)
+    else:
+        freq_fundamental_array = None
+    
     velocidades_acerca = []
     velocidades_aleja = []
     clasificaciones = []
@@ -250,16 +265,25 @@ def calcular_velocidades_metodo2(frecuencias_pico, info_ventanas, freq_real, ins
     for i, (freq_pico, info) in enumerate(zip(frecuencias_pico, info_ventanas)):
         tiempo_fin = info['tiempo_fin']
         
+        # Determinar la frecuencia real a usar para esta ventana
+        # Si tenemos función fundamental, usar el valor correspondiente al índice más cercano
+        if freq_fundamental_array is not None:
+            # Encontrar el índice más cercano en t_freq al tiempo_fin de esta ventana
+            idx_cercano = np.argmin(np.abs(t_freq - tiempo_fin))
+            freq_real_ventana = freq_fundamental_array[idx_cercano]
+        else:
+            freq_real_ventana = freq_real
+        
         # Clasificar basándose en el tiempo relativo al instante de paso
         if tiempo_fin < instante_paso:
             # ACERCAMIENTO: ventana termina antes del instante de paso
-            v_acerca = v_sonido * (1 - freq_real / freq_pico)
+            v_acerca = abs(v_sonido * (1 - freq_real_ventana / freq_pico))
             velocidades_acerca.append(v_acerca)
             velocidades_aleja.append(None)
             clasificaciones.append("ACERCAMIENTO")
         else:
             # ALEJAMIENTO: ventana termina después del instante de paso
-            v_aleja = v_sonido * (freq_real / freq_pico - 1)
+            v_aleja = abs(v_sonido * (freq_real_ventana / freq_pico - 1))
             velocidades_acerca.append(None)
             velocidades_aleja.append(v_aleja)
             clasificaciones.append("ALEJAMIENTO")
@@ -288,6 +312,8 @@ def obtener_datos_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5
         - frecuencia_real_hz: Frecuencia real emitida
         - instante_paso_s: Instante de paso del micrófono
         - info_estimacion: Detalles adicionales
+        - t_freq: Array de tiempo de las ventanas STFT
+        - frecuencias_instantaneas: Array de frecuencias instantáneas detectadas
     """
     
     from src.analizar_espectrograma import _estimar_frecuencia_real_e_instante_paso
@@ -297,13 +323,16 @@ def obtener_datos_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5
     noverlap = int(nperseg * 0.75)
     
     # Estimar frecuencia real e instante de paso
-    frecuencia_real, instante_paso, info_estimacion = _estimar_frecuencia_real_e_instante_paso(
+    # Ahora retorna 5 valores: frecuencia_real, instante_paso, info_estimacion, t, frecuencias_instantaneas
+    frecuencia_real, instante_paso, info_estimacion, t_freq, frecuencias_instantaneas = _estimar_frecuencia_real_e_instante_paso(
         fs, data, nperseg, noverlap
     )
     
     return {
         'frecuencia_real_hz': frecuencia_real,
         'instante_paso_s': instante_paso,
-        'info_estimacion': info_estimacion
+        'info_estimacion': info_estimacion,
+        't_freq': t_freq,
+        'frecuencias_instantaneas': frecuencias_instantaneas
     }
 

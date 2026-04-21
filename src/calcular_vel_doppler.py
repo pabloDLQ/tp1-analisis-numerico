@@ -199,7 +199,7 @@ Parámetros:
     # Resultado final destacado
     print("\n" + "█"*70)
     print("█" + " "*68 + "█")
-    print("█" + f"  MÉTODO 1 - VELOCIDAD DE LA SIRENA: {v_global_promedio_kmh:.2f} km/h ({v_global_promedio_ms:.2f} m/s)".center(68) + "█")
+    print("█" + f"  MÉTODO 1 - VELOCIDAD DE LA AMBULANCIA: {v_global_promedio_kmh:.2f} km/h ({v_global_promedio_ms:.2f} m/s)".center(68) + "█")
     print("█" + " "*68 + "█")
     print("█"*70)
 
@@ -234,6 +234,8 @@ def metodo_2_doppler(fs, data, nombre_sirena, numero_sirena, carpeta_graficos, t
     
     freq_real = datos_espectrograma['frecuencia_real_hz']
     instante_paso = datos_espectrograma['instante_paso_s']
+    t_freq = datos_espectrograma['t_freq']
+    frecuencias_instantaneas = datos_espectrograma['frecuencias_instantaneas']
     
     print(f"[OK] Frecuencia real estimada: {freq_real:.2f} Hz")
     print(f"[OK] Instante de paso: {instante_paso:.4f} s")
@@ -278,7 +280,8 @@ def metodo_2_doppler(fs, data, nombre_sirena, numero_sirena, carpeta_graficos, t
     # Calcular velocidades con Método 2
     v_sonido = 343
     velocidades_acerca, velocidades_aleja, clasificaciones = calcular_velocidades_metodo2(
-        frecuencias_pico, info_ventanas, freq_real, instante_paso
+        frecuencias_pico, info_ventanas, freq_real, instante_paso,
+        t_freq=t_freq, frecuencias_instantaneas=frecuencias_instantaneas
     )
     
     print(f"""
@@ -349,7 +352,7 @@ Parámetros:
     # Resultado final destacado
     print("\n" + "█"*70)
     print("█" + " "*68 + "█")
-    print("█" + f"  MÉTODO 2 - VELOCIDAD DE LA SIRENA: {v_global_promedio_kmh:.2f} km/h ({v_global_promedio_ms:.2f} m/s)".center(68) + "█")
+    print("█" + f"  MÉTODO 2 - VELOCIDAD DE LA AMBULANCIA: {v_global_promedio_kmh:.2f} km/h ({v_global_promedio_ms:.2f} m/s)".center(68) + "█")
     print("█" + " "*68 + "█")
     print("█"*70)
 

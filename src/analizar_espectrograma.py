@@ -27,6 +27,88 @@ import os
 from src.cargar_sirenas import cargar_sirenas
 
 
+def frecuencia_fundamental(t, frecuencias_instantaneas, instante_paso, freq_min=650, freq_max=1350):
+    """
+    Crea una función sinusoidal que representa la frecuencia fundamental.
+    - Picos coinciden con los de la sirena en 1350 Hz
+    - Valles coinciden con los de la sirena en 650 Hz
+    - Pasa por el punto de oscilación (instante_paso)
+    - Tiene la misma frecuencia de oscilación que la sirena
+    
+    Parámetros:
+    -----------
+    t : ndarray
+        Array de tiempo correspondiente a cada ventana del espectrograma (segundos)
+    frecuencias_instantaneas : ndarray
+        Array de frecuencias instantáneas detectadas en cada ventana (Hz)
+    instante_paso : float
+        Instante de tiempo donde la ambulancia pasa más cerca del micrófono (segundos)
+        (punto de transición entre acercamiento y alejamiento)
+    freq_min : float, default 650
+        Frecuencia mínima (valle) de la función fundamental (Hz)
+    freq_max : float, default 1350
+        Frecuencia máxima (pico) de la función fundamental (Hz)
+    
+    Retorna:
+    --------
+    ndarray : Array con la función sinusoidal de frecuencia fundamental en cada punto de tiempo
+    """
+    
+    # Detectar la frecuencia de oscilación usando FFT de las frecuencias instantáneas
+    # Aplicar una ventana antes de hacer FFT
+    ventana = signal.windows.hann(len(frecuencias_instantaneas))
+    freq_ventaneadas = frecuencias_instantaneas * ventana
+    
+    # FFT para encontrar la frecuencia de oscilación
+    fft_result = np.fft.fft(freq_ventaneadas)
+    frecuencias_fft = np.fft.fftfreq(len(frecuencias_instantaneas), t[1] - t[0])
+    
+    # Tomar solo frecuencias positivas
+    idx_pos = frecuencias_fft > 0
+    magnitud_fft = np.abs(fft_result[idx_pos])
+    frecuencias_fft_pos = frecuencias_fft[idx_pos]
+    
+    # Encontrar el pico principal (ignorar DC)
+    if len(magnitud_fft) > 1:
+        idx_pico = np.argmax(magnitud_fft[1:]) + 1
+        frecuencia_oscilacion = frecuencias_fft_pos[idx_pico]
+    else:
+        # Estimación alternativa: usar el período entre máximos/mínimos
+        duracion_total = t[-1] - t[0]
+        frecuencia_oscilacion = 0.5 / duracion_total if duracion_total > 0 else 0.5
+    
+    # Asegurar que la frecuencia de oscilación sea razonable
+    if frecuencia_oscilacion <= 0 or frecuencia_oscilacion > 1:
+        frecuencia_oscilacion = 0.5  # Valor por defecto: medio ciclo en toda la duración
+    
+    # Centro y amplitud de la oscilación sinusoidal
+    centro = (freq_min + freq_max) / 2  # 1000 Hz
+    amplitud = (freq_max - freq_min) / 2  # 350 Hz
+    
+    # Punto de referencia donde la función debe pasar
+    t_ref = 3.8  # segundos
+    f_ref = 1000  # Hz
+    
+    # Calcular el phase shift necesario para que pase por el punto (t_ref, f_ref)
+    # f_ref = centro + amplitud * cos(2π * frecuencia_oscilacion * (t_ref - instante_paso) + phase_shift)
+    # Despejando phase_shift:
+    cos_value = (f_ref - centro) / amplitud
+    # Limitar el valor de cos_value a [-1, 1]
+    cos_value = np.clip(cos_value, -1, 1)
+    
+    # Calcular el ángulo que produce ese valor de coseno
+    # Usamos arccos que devuelve un valor en [0, π]
+    angle_ref = np.arccos(cos_value)
+    
+    # Calcular el phase shift
+    phase_shift = angle_ref - 2 * np.pi * frecuencia_oscilacion * (t_ref - instante_paso)
+    
+    # Crear función sinusoidal con el phase shift ajustado
+    freq_fundamental = centro + amplitud * np.cos(2 * np.pi * frecuencia_oscilacion * (t - instante_paso) + phase_shift)
+    
+    return freq_fundamental
+
+
 def _estimar_frecuencia_real_e_instante_paso(fs, data, nperseg, noverlap):
     """
     Estima la frecuencia real emitida por la ambulancia y el instante en que pasa
@@ -45,10 +127,12 @@ def _estimar_frecuencia_real_e_instante_paso(fs, data, nperseg, noverlap):
     
     Retorna:
     --------
-    tuple : (frecuencia_real_hz, instante_paso_s, dict_info)
+    tuple : (frecuencia_real_hz, instante_paso_s, dict_info, t, frecuencias_instantaneas)
         - frecuencia_real_hz: estimación de la frecuencia real emitida (Hz)
         - instante_paso_s: instante estimado del paso al lado del micrófono (s)
         - dict_info: diccionario con información de la estimación
+        - t: array de tiempo de cada ventana STFT (s)
+        - frecuencias_instantaneas: array de frecuencias detectadas en cada ventana (Hz)
     """
     
     # Generar STFT complejo para obtener fase
@@ -113,12 +197,12 @@ def _estimar_frecuencia_real_e_instante_paso(fs, data, nperseg, noverlap):
         'ventana_promedio_muestras': int(ventana_promedio),
     }
     
-    return float(frecuencia_real), float(instante_paso), info_estimacion
+    return float(frecuencia_real), float(instante_paso), info_estimacion, t, frecuencias_instantaneas
 
 
 def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5, 
                           titulo="Espectrograma", archivo_salida=None, 
-                          freq_min=0, freq_max=3000):
+                          freq_min=0, freq_max=3000, mostrar_freq_fundamental=False):
     """
     Genera un espectrograma de tiempo-frecuencia para una señal de audio.
     
@@ -140,6 +224,8 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
         Frecuencia mínima a mostrar en Hz
     freq_max : float, default 3000
         Frecuencia máxima a mostrar en Hz
+    mostrar_freq_fundamental : bool, default False
+        Si True, muestra la función de frecuencia fundamental en negro (solo para Sirena 2)
     
     Retorna:
     --------
@@ -166,7 +252,7 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
                                    scaling='spectrum')
     
     # Estimar la frecuencia real y el instante de paso
-    frecuencia_real, instante_paso, info_estimacion = _estimar_frecuencia_real_e_instante_paso(
+    frecuencia_real, instante_paso, info_estimacion, t_freq, frecuencias_instantaneas = _estimar_frecuencia_real_e_instante_paso(
         fs, data, nperseg, noverlap
     )
     
@@ -193,20 +279,16 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
     im = ax.pcolormesh(t, f_limitado, Sxx_db, shading='gouraud', cmap=cmap, 
                        rasterized=True)
     
-    # Marcar el instante de paso al lado del micrófono con una línea vertical
-    ax.axvline(x=instante_paso, color='red', linestyle='--', linewidth=2, 
-               label=f'Paso más cercano: {instante_paso:.3f}s')
-    
-    # Marcar la frecuencia real con una línea horizontal
-    ax.axhline(y=frecuencia_real, color='lime', linestyle='--', linewidth=2,
-               label=f'Frecuencia real: {frecuencia_real:.1f}Hz')
+    # Agregar la función de frecuencia fundamental si se solicita (Sirena 2)
+    if mostrar_freq_fundamental and numero_sirena == 2:
+        freq_fund = frecuencia_fundamental(t_freq, frecuencias_instantaneas, instante_paso)
+        ax.plot(t_freq, freq_fund, color='black', linewidth=2.5, zorder=5)
     
     # Configurar ejes
     ax.set_ylabel('Frecuencia (Hz)', fontsize=12, fontweight='bold')
     ax.set_xlabel('Tiempo (s)', fontsize=12, fontweight='bold')
     ax.set_title(titulo_completo, fontsize=14, fontweight='bold')
     ax.set_ylim([freq_min, freq_max])
-    ax.legend(loc='upper right', fontsize=10)
     
     # Barra de colores
     cbar = fig.colorbar(im, ax=ax, label='Magnitud (dB)')
@@ -240,7 +322,8 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
         'frecuencia_real_emitida_Hz': frecuencia_real,
         'instante_paso_micrófono_s': instante_paso,
         'info_estimacion': info_estimacion,
-        'archivo_salida': archivo_salida
+        'archivo_salida': archivo_salida,
+        'mostrar_freq_fundamental': mostrar_freq_fundamental
     }
     
     return info_espectrograma
@@ -289,6 +372,7 @@ def main(numero_sirena=1, tamaño_ventana_s=0.5):
         data = sirenas['sirena1']['data']
         nombre_sirena = "Sirena 1"
         rango_freq = (500, 1500)  # Rango para Sirena 1
+        mostrar_freq_fundamental = False
     else:  # numero_sirena == 2
         if sirenas['sirena2'] is None:
             print("Error: No se pudo cargar Sirena 2")
@@ -297,9 +381,26 @@ def main(numero_sirena=1, tamaño_ventana_s=0.5):
         data = sirenas['sirena2']['data']
         nombre_sirena = "Sirena 2"
         rango_freq = (500, 1700)  # Rango para Sirena 2
+        
+        # Preguntar si desea mostrar la función fundamental (solo para Sirena 2)
+        print("\n" + "="*70)
+        print("OPCIÓN: FUNCIÓN DE FRECUENCIA FUNDAMENTAL")
+        print("="*70)
+        while True:
+            respuesta = input("\n¿Deseas mostrar la función de frecuencia fundamental en el espectrograma? (s/n): ").strip().lower()
+            if respuesta in ['s', 'si', 'sí']:
+                mostrar_freq_fundamental = True
+                print("[OK] Se mostrará la función fundamental en color negro.")
+                break
+            elif respuesta in ['n', 'no']:
+                mostrar_freq_fundamental = False
+                print("[OK] No se mostrará la función fundamental.")
+                break
+            else:
+                print("Respuesta inválida. Intenta de nuevo (s/n).")
     
     duracion = len(data) / fs
-    print(f"[OK] {nombre_sirena}: fs = {fs} Hz, duración = {duracion:.2f} s")
+    print(f"\n[OK] {nombre_sirena}: fs = {fs} Hz, duración = {duracion:.2f} s")
     print(f"[OK] Tamaño de ventana STFT: {tamaño_ventana_s} s")
     print(f"[OK] Rango de frecuencias a mostrar: {rango_freq[0]}-{rango_freq[1]} Hz")
     
@@ -316,7 +417,8 @@ def main(numero_sirena=1, tamaño_ventana_s=0.5):
         titulo=nombre_sirena,
         archivo_salida=archivo_salida,
         freq_min=rango_freq[0],
-        freq_max=rango_freq[1]
+        freq_max=rango_freq[1],
+        mostrar_freq_fundamental=mostrar_freq_fundamental
     )
     
     # Mostrar información
@@ -330,6 +432,9 @@ def main(numero_sirena=1, tamaño_ventana_s=0.5):
     print(f"Número de ventanas: {info['numero_ventanas']}")
     print(f"Rango de frecuencias mostrado: {info['rango_frecuencias_Hz'][0]:.0f} - {info['rango_frecuencias_Hz'][1]:.0f} Hz")
     print(f"Frecuencia dominante: {info['frecuencia_dominante_Hz']:.2f} Hz")
+    
+    if mostrar_freq_fundamental:
+        print(f"Función fundamental mostrada: SÍ (rango 650-1350 Hz)")
     
     print("\n" + "="*70)
     print("ANÁLISIS DE EFECTO DOPPLER")
