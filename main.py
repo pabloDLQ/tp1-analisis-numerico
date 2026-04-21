@@ -158,7 +158,7 @@ def analizar_doppler_menu(sirenas):
     # Seleccionar tamaño de ventana
     print("\nSelecciona el tamaño de ventana temporal (en segundos):")
     print("  1. 0.25 segundos")
-    print("  2. 0.5 segundos (recomendado)")
+    print("  2. 0.5 segundos")
     print("  3. 1.0 segundos")
     print("  4. Personalizado")
     
@@ -232,7 +232,7 @@ def analizar_espectrograma_menu(sirenas):
     print("\nSelecciona el tamaño de ventana STFT (en segundos):")
     print("  1. 0.1 segundos")
     print("  2. 0.25 segundos")
-    print("  3. 0.5 segundos (recomendado)")
+    print("  3. 0.5 segundos")
     print("  4. 1.0 segundos")
     print("  5. Personalizado")
     

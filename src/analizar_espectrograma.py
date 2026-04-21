@@ -27,6 +27,95 @@ import os
 from src.cargar_sirenas import cargar_sirenas
 
 
+def _estimar_frecuencia_real_e_instante_paso(fs, data, nperseg, noverlap):
+    """
+    Estima la frecuencia real emitida por la ambulancia y el instante en que pasa
+    al lado del micrófono utilizando análisis de la frecuencia instantánea.
+    
+    Parámetros:
+    -----------
+    fs : float
+        Frecuencia de muestreo en Hz
+    data : ndarray
+        Array con las muestras de audio
+    nperseg : int
+        Número de muestras por ventana en STFT
+    noverlap : int
+        Número de muestras de solapamiento en STFT
+    
+    Retorna:
+    --------
+    tuple : (frecuencia_real_hz, instante_paso_s, dict_info)
+        - frecuencia_real_hz: estimación de la frecuencia real emitida (Hz)
+        - instante_paso_s: instante estimado del paso al lado del micrófono (s)
+        - dict_info: diccionario con información de la estimación
+    """
+    
+    # Generar STFT complejo para obtener fase
+    f, t, Sxx = signal.spectrogram(data, fs=fs, 
+                                   window='hann',
+                                   nperseg=nperseg,
+                                   noverlap=noverlap,
+                                   scaling='spectrum',
+                                   return_onesided=True)
+    
+    # Calcular la frecuencia instantánea del pico principal en cada ventana
+    frecuencias_instantaneas = []
+    magnitudes_pico = []
+    
+    for i in range(Sxx.shape[1]):  # Para cada ventana de tiempo
+        magnitud_ventana = Sxx[:, i]
+        # Encontrar el pico (excluyendo bajas frecuencias)
+        idx_min_freq = np.argmax(f >= 100)  # Ignorar frecuencias < 100 Hz
+        idx_pico = idx_min_freq + np.argmax(magnitud_ventana[idx_min_freq:])
+        
+        if idx_pico < len(f):
+            frecuencias_instantaneas.append(f[idx_pico])
+            magnitudes_pico.append(magnitud_ventana[idx_pico])
+    
+    frecuencias_instantaneas = np.array(frecuencias_instantaneas)
+    magnitudes_pico = np.array(magnitudes_pico)
+    
+    # Calcular la derivada de la frecuencia instantánea
+    # La derivada máxima indica el punto donde la velocidad radial es cero
+    derivada_freq = np.gradient(frecuencias_instantaneas)
+    
+    # Suavizar la derivada para obtener mejor estimación
+    ventana_suave = signal.windows.hann(min(5, len(derivada_freq)))
+    if len(ventana_suave) > 1:
+        derivada_freq_suave = signal.convolve(derivada_freq, ventana_suave/ventana_suave.sum(), mode='same')
+    else:
+        derivada_freq_suave = derivada_freq
+    
+    # Encontrar el máximo de la derivada (donde cambia más rápidamente)
+    idx_max_derivada = np.argmax(np.abs(derivada_freq_suave))
+    instante_paso = t[idx_max_derivada]
+    
+    # Estimar la frecuencia real como el promedio alrededor del punto de paso
+    ventana_promedio = max(2, len(frecuencias_instantaneas) // 10)  # Ventana del 10% de la duración
+    inicio_ventana = max(0, idx_max_derivada - ventana_promedio)
+    fin_ventana = min(len(frecuencias_instantaneas), idx_max_derivada + ventana_promedio)
+    
+    frecuencia_real = np.mean(frecuencias_instantaneas[inicio_ventana:fin_ventana])
+    
+    # También calcular como promedio ponderado por magnitud
+    frecuencia_real_ponderada = np.average(
+        frecuencias_instantaneas[inicio_ventana:fin_ventana],
+        weights=magnitudes_pico[inicio_ventana:fin_ventana]
+    )
+    
+    info_estimacion = {
+        'frecuencia_min_Hz': float(np.min(frecuencias_instantaneas)),
+        'frecuencia_max_Hz': float(np.max(frecuencias_instantaneas)),
+        'frecuencia_promedio_Hz': float(np.mean(frecuencias_instantaneas)),
+        'derivada_max': float(np.max(np.abs(derivada_freq_suave))),
+        'idx_max_derivada': int(idx_max_derivada),
+        'ventana_promedio_muestras': int(ventana_promedio),
+    }
+    
+    return float(frecuencia_real), float(instante_paso), info_estimacion
+
+
 def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5, 
                           titulo="Espectrograma", archivo_salida=None, 
                           freq_min=0, freq_max=3000):
@@ -54,7 +143,7 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
     
     Retorna:
     --------
-    dict : Información del espectrograma generado
+    dict : Información del espectrograma generado con datos de frecuencia real e instante de paso
     """
     
     # Validaciones
@@ -69,12 +158,17 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
     nperseg = int(tamaño_ventana_s * fs)  # Número de muestras por ventana
     noverlap = int(nperseg * 0.75)  # 75% de solapamiento para suavidad
     
-    # Generar STFT
+    # Generar STFT para el espectrograma
     f, t, Sxx = signal.spectrogram(data, fs=fs, 
                                    window='hann',
                                    nperseg=nperseg,
                                    noverlap=noverlap,
                                    scaling='spectrum')
+    
+    # Estimar la frecuencia real y el instante de paso
+    frecuencia_real, instante_paso, info_estimacion = _estimar_frecuencia_real_e_instante_paso(
+        fs, data, nperseg, noverlap
+    )
     
     # Limitar rango de frecuencias
     idx_freq = np.where((f >= freq_min) & (f <= freq_max))[0]
@@ -99,11 +193,20 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
     im = ax.pcolormesh(t, f_limitado, Sxx_db, shading='gouraud', cmap=cmap, 
                        rasterized=True)
     
+    # Marcar el instante de paso al lado del micrófono con una línea vertical
+    ax.axvline(x=instante_paso, color='red', linestyle='--', linewidth=2, 
+               label=f'Paso más cercano: {instante_paso:.3f}s')
+    
+    # Marcar la frecuencia real con una línea horizontal
+    ax.axhline(y=frecuencia_real, color='lime', linestyle='--', linewidth=2,
+               label=f'Frecuencia real: {frecuencia_real:.1f}Hz')
+    
     # Configurar ejes
     ax.set_ylabel('Frecuencia (Hz)', fontsize=12, fontweight='bold')
     ax.set_xlabel('Tiempo (s)', fontsize=12, fontweight='bold')
     ax.set_title(titulo_completo, fontsize=14, fontweight='bold')
     ax.set_ylim([freq_min, freq_max])
+    ax.legend(loc='upper right', fontsize=10)
     
     # Barra de colores
     cbar = fig.colorbar(im, ax=ax, label='Magnitud (dB)')
@@ -134,6 +237,9 @@ def generar_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5,
         'numero_ventanas': int(num_ventanas),
         'rango_frecuencias_Hz': (float(freq_min), float(freq_max)),
         'frecuencia_dominante_Hz': float(freq_pico),
+        'frecuencia_real_emitida_Hz': frecuencia_real,
+        'instante_paso_micrófono_s': instante_paso,
+        'info_estimacion': info_estimacion,
         'archivo_salida': archivo_salida
     }
     
@@ -224,6 +330,16 @@ def main(numero_sirena=1, tamaño_ventana_s=0.5):
     print(f"Número de ventanas: {info['numero_ventanas']}")
     print(f"Rango de frecuencias mostrado: {info['rango_frecuencias_Hz'][0]:.0f} - {info['rango_frecuencias_Hz'][1]:.0f} Hz")
     print(f"Frecuencia dominante: {info['frecuencia_dominante_Hz']:.2f} Hz")
+    
+    print("\n" + "="*70)
+    print("ANÁLISIS DE EFECTO DOPPLER")
+    print("="*70)
+    print(f"Frecuencia real emitida (f₀): {info['frecuencia_real_emitida_Hz']:.2f} Hz")
+    print(f"Instante de paso más cercano: {info['instante_paso_micrófono_s']:.4f} s")
+    print(f"\nDetalles de la estimación:")
+    print(f"  - Frecuencia mínima detectada: {info['info_estimacion']['frecuencia_min_Hz']:.2f} Hz")
+    print(f"  - Frecuencia máxima detectada: {info['info_estimacion']['frecuencia_max_Hz']:.2f} Hz")
+    print(f"  - Frecuencia promedio: {info['info_estimacion']['frecuencia_promedio_Hz']:.2f} Hz")
     
     print("\n" + "="*70)
     print(f"Archivo generado: {archivo_salida}")

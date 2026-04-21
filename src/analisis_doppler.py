@@ -211,3 +211,99 @@ def calcular_velocidades_por_ventana(frecuencias_pico, freq_promedio=None):
             velocidades_aleja.append(v_aleja)
     
     return velocidades_acerca, velocidades_aleja
+
+
+def calcular_velocidades_metodo2(frecuencias_pico, info_ventanas, freq_real, instante_paso):
+    """
+    MÉTODO 2: Calcula velocidades usando la frecuencia real del espectrograma e instante de paso.
+    
+    Clasifica cada ventana como acercamiento o alejamiento basándose en:
+    - Si tiempo_fin < instante_paso: ACERCAMIENTO
+    - Si tiempo_fin > instante_paso: ALEJAMIENTO
+    
+    Parámetros:
+    -----------
+    frecuencias_pico : list
+        Lista de frecuencias pico detectadas en cada ventana
+    info_ventanas : list
+        Lista de dicts con información de cada ventana (tiempo_inicio, tiempo_fin, etc.)
+    freq_real : float
+        Frecuencia real emitida (f₀) obtenida del espectrograma
+    instante_paso : float
+        Instante de paso más cercano del micrófono (en segundos)
+    
+    Retorna:
+    --------
+    tuple : (velocidades_acerca, velocidades_aleja, clasificaciones)
+        - velocidades_acerca: lista de velocidades en acercamiento (None si no aplica)
+        - velocidades_aleja: lista de velocidades en alejamiento (None si no aplica)
+        - clasificaciones: lista de strings indicando la clasificación de cada ventana
+    """
+    
+    v_sonido = 343  # m/s a 20°C
+    
+    velocidades_acerca = []
+    velocidades_aleja = []
+    clasificaciones = []
+    
+    # Procesar cada ventana
+    for i, (freq_pico, info) in enumerate(zip(frecuencias_pico, info_ventanas)):
+        tiempo_fin = info['tiempo_fin']
+        
+        # Clasificar basándose en el tiempo relativo al instante de paso
+        if tiempo_fin < instante_paso:
+            # ACERCAMIENTO: ventana termina antes del instante de paso
+            v_acerca = v_sonido * (1 - freq_real / freq_pico)
+            velocidades_acerca.append(v_acerca)
+            velocidades_aleja.append(None)
+            clasificaciones.append("ACERCAMIENTO")
+        else:
+            # ALEJAMIENTO: ventana termina después del instante de paso
+            v_aleja = v_sonido * (freq_real / freq_pico - 1)
+            velocidades_acerca.append(None)
+            velocidades_aleja.append(v_aleja)
+            clasificaciones.append("ALEJAMIENTO")
+    
+    return velocidades_acerca, velocidades_aleja, clasificaciones
+
+
+def obtener_datos_espectrograma(fs, data, numero_sirena=1, tamaño_ventana_s=0.5):
+    """
+    Obtiene los datos del espectrograma sin generar gráficos.
+    
+    Parámetros:
+    -----------
+    fs : float
+        Frecuencia de muestreo
+    data : ndarray
+        Array con las muestras de audio
+    numero_sirena : int
+        Número de sirena (1 o 2)
+    tamaño_ventana_s : float
+        Tamaño de ventana STFT
+    
+    Retorna:
+    --------
+    dict : Diccionario con:
+        - frecuencia_real_hz: Frecuencia real emitida
+        - instante_paso_s: Instante de paso del micrófono
+        - info_estimacion: Detalles adicionales
+    """
+    
+    from src.analizar_espectrograma import _estimar_frecuencia_real_e_instante_paso
+    
+    # Calcular parámetros STFT
+    nperseg = int(tamaño_ventana_s * fs)
+    noverlap = int(nperseg * 0.75)
+    
+    # Estimar frecuencia real e instante de paso
+    frecuencia_real, instante_paso, info_estimacion = _estimar_frecuencia_real_e_instante_paso(
+        fs, data, nperseg, noverlap
+    )
+    
+    return {
+        'frecuencia_real_hz': frecuencia_real,
+        'instante_paso_s': instante_paso,
+        'info_estimacion': info_estimacion
+    }
+
